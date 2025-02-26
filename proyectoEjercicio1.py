@@ -4,56 +4,73 @@ import random
 
 e = 65357
 
+# Generar las claves de Alice
 pA = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
 qA = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
 
 nA = pA * qA
 print("\n", "RSA Llave pública de Alice:", nA)
 
-#pB = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
-#qB = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
-
-#nB = pB * qB
-#print("\n", "RSA nBob:", nB)
-
 phiA = (qA - 1) * (pA - 1)
 dA = Crypto.Util.number.inverse(e, phiA)
 
 print("\n", "RSA Llave privada Alice dA:", dA)
 
-#phiB = (qB - 1) * (pB - 1)
-#dB = Crypto.Util.number.inverse(e, phiB)
+# Generar las claves de Bob
+pB = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
+qB = Crypto.Util.number.getPrime(1024, randfunc=Crypto.Random.get_random_bytes)
 
-#print("\n", "RSA Llave privada Alice dA:", dB)
+nB = pB * qB
+print("\n", "RSA Llave pública de Bob:", nB)
 
-mensaje = "Hola mundo!"
+phiB = (qB - 1) * (pB - 1)
+dB = Crypto.Util.number.inverse(e, phiB)
 
-print(mensaje)
+print("\n", "RSA Llave privada de Bob dB:", dB)
 
-hM = int.from_bytes(hashlib.sha256(mensaje.encode('utf-8')).digest(),byteorder='big')
-print("\n", "HASH de hM:", hex(hM))
+# Mensaje original
+mensaje = random.getrandbits(1050)
+print("\n", "Mensaje original:", mensaje)
 
-sA = pow(hM, dA, nA)
-print("\n", "Firma:", sA)
+# Dividir el mensaje en partes de 128 caracteres
+def dividir_numero(mensaje, tamaño=128):
+    numero = str(mensaje)
+    partes = [numero[i:i + tamaño] for i in range(0, len(numero), tamaño)]
+    return partes
 
-hM1 = pow(sA,e,nA)
-print("\n", "HASH de hM1", hex(hM1))
-if(hM1==hM):
-    print("Firma valida")
+partes = dividir_numero(mensaje)
+
+# Cifrar el mensaje con la clave pública de Bob
+def cifrar_mensaje(partes, nA, e):
+    return [pow(int(parte), e, nA) for parte in partes]
+
+partes_cifradas = cifrar_mensaje(partes, nA, e)
+
+# Descifrar el mensaje con la clave privada de Bob
+def descifrar_mensaje(partes_cifradas, nA, dA):
+    return [pow(parte_cifrada, dA, nA) for parte_cifrada in partes_cifradas]
+
+partes_descifradas = descifrar_mensaje(partes_cifradas, nA, dA)
+
+# Reconstruir el mensaje original
+def reconstruir_mensaje(partes_descifradas):
+    return ''.join(map(str, partes_descifradas))
+
+mensaje_descifrado = reconstruir_mensaje(partes_descifradas)
+print("\n", "Mensaje descifrado:", mensaje_descifrado)
+
+# Calcular el hash del mensaje original y del mensaje descifrado
+def calcular_hash(mensaje):
+    return hashlib.sha256(str(mensaje).encode()).hexdigest()
+
+hM = calcular_hash(mensaje)
+print("\n", "Hash original (h(M)):", hM)
+
+hM1 = calcular_hash(mensaje_descifrado)
+print("\n", "Hash descifrado (h(M')):", hM1)
+
+# Comparar los hashes
+if hM == hM1:
+    print("\n", "El mensaje es auténtico: h(M) = h(M')")
 else:
-    print("Firma no valida")
-
-#############################################################################################
-
-def calcular_hash_pdf(ruta_pdf, algoritmo="sha256", tamano_bloque=65536):
-    hasher = hashlib.new(algoritmo)
-    with open(ruta_pdf, "rb") as archivo:
-        while bloque := archivo.read(tamano_bloque):
-            hasher.update(bloque)
-    return hasher.hexdigest()
-
-ruta_pdf = "NDA.pdf"
-hash_resultado = calcular_hash_pdf(ruta_pdf,"sha256")
-print("Hash SHA-256:", hash_resultado)
-###############################################################################################
-print(hashlib.sha256(open("NDA.pdf", "rb").read()).hexdigest())
+    print("\n", "El mensaje no es auténtico: h(M) ≠ h(M')")
